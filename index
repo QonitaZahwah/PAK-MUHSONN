@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bond Hero: The Chemical Matchmaker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; color: white; }
+        .game-container { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; padding: 30px; max-width: 600px; width: 90%; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        .subtitle { font-size: 1.2em; margin-bottom: 30px; opacity: 0.9; }
+        .level-info { background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+        .question { font-size: 1.5em; margin: 20px 0; }
+        .elements { display: flex; justify-content: center; gap: 20px; margin: 20px 0; }
+        .element { background: #ff6b6b; padding: 15px 25px; border-radius: 50%; font-size: 1.5em; font-weight: bold; color: white; min-width: 60px; }
+        .options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 20px 0; }
+        .option { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3); padding: 15px; border-radius: 10px; cursor: pointer; transition: all 0.3s; }
+        .option:hover { background: rgba(255,255,255,0.3); transform: translateY(-2px); }
+        .option.correct { background: #4ecdc4; border-color: #45b7b8; }
+        .option.incorrect { background: #ff6b6b; border-color: #ee5a52; }
+        .drag-area { background: rgba(255,255,255,0.1); border: 2px dashed rgba(255,255,255,0.5); border-radius: 15px; padding: 30px; margin: 20px 0; min-height: 200px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 15px; }
+        .draggable { background: #4ecdc4; padding: 10px 20px; border-radius: 25px; cursor: grab; user-select: none; transition: transform 0.2s; }
+        .draggable:hover { transform: scale(1.1); }
+        .draggable.dragging { opacity: 0.5; transform: rotate(5deg); }
+        .drop-zone { background: rgba(255,255,255,0.2); border: 2px dashed rgba(255,255,255,0.5); border-radius: 10px; padding: 20px; margin: 10px; min-width: 120px; min-height: 80px; display: flex; align-items: center; justify-content: center; }
+        .drop-zone.drag-over { background: rgba(255,255,255,0.4); border-color: #4ecdc4; }
+        .btn { background: linear-gradient(45deg, #ff6b6b, #ee5a52); border: none; padding: 15px 30px; border-radius: 25px; color: white; font-size: 1.1em; cursor: pointer; transition: all 0.3s; margin: 10px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .score { font-size: 1.3em; margin: 20px 0; }
+        .feedback { margin: 15px 0; font-size: 1.2em; min-height: 30px; }
+        .hidden { display: none; }
+        .level-complete { background: rgba(76, 175, 80, 0.3); border: 2px solid #4caf50; padding: 20px; border-radius: 15px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="start-screen">
+            <h1>🧪 Bond Hero</h1>
+            <p class="subtitle">The Chemical Matchmaker</p>
+            <p>Master the art of chemical bonding across 3 exciting levels!</p>
+            <button class="btn" onclick="startGame()">Start Adventure</button>
+        </div>
+
+        <div id="game-screen" class="hidden">
+            <div class="level-info">
+                <h2 id="level-title"></h2>
+                <p id="level-desc"></p>
+            </div>
+            
+            <div class="score">Score: <span id="score">0</span>/15</div>
+            
+            <div id="level-content"></div>
+            
+            <div class="feedback" id="feedback"></div>
+            
+            <button class="btn" id="next-btn" onclick="nextQuestion()" style="display:none;">Next Question</button>
+            <button class="btn" id="level-btn" onclick="nextLevel()" style="display:none;">Next Level</button>
+        </div>
+
+        <div id="end-screen" class="hidden">
+            <h1>🏆 Mission Complete!</h1>
+            <div class="score">Final Score: <span id="final-score"></span>/15</div>
+            <h2 id="hero-title"></h2>
+            <p id="hero-desc"></p>
+            <button class="btn" onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        let currentLevel = 1;
+        let currentQuestion = 0;
+        let score = 0;
+        let answered = false;
+
+        const gameData = {
+            level1: [
+                {elements: ['Na', 'Cl'], answer: 'Ionic', explanation: 'Metal + Non-metal = Ionic bond'},
+                {elements: ['H', 'O'], answer: 'Covalent (polar)', explanation: 'Different non-metals = Polar covalent'},
+                {elements: ['C', 'C'], answer: 'Covalent (non-polar)', explanation: 'Same elements = Non-polar covalent'},
+                {elements: ['Fe', 'Cu'], answer: 'Metallic', explanation: 'Metal + Metal = Metallic bond'},
+                {elements: ['Ca', 'F'], answer: 'Ionic', explanation: 'Metal + Non-metal = Ionic bond'}
+            ],
+            level2: [
+                {values: [0.9, 4.0], answer: 'Ionic', explanation: 'Difference > 1.7 = Ionic'},
+                {values: [2.1, 3.0], answer: 'Covalent (polar)', explanation: 'Difference 0.4-1.7 = Polar covalent'},
+                {values: [2.5, 2.5], answer: 'Covalent (non-polar)', explanation: 'Difference < 0.4 = Non-polar covalent'},
+                {values: [1.8, 1.9], answer: 'Metallic', explanation: 'Both low electronegativity = Metallic'},
+                {values: [1.0, 3.5], answer: 'Ionic', explanation: 'Difference > 1.7 = Ionic'}
+            ],
+            level3: [
+                {pair: ['Na', 'Cl'], valid: true, compound: 'NaCl'},
+                {pair: ['H', 'He'], valid: false, compound: 'None'},
+                {pair: ['C', 'O'], valid: true, compound: 'CO'},
+                {pair: ['K', 'Br'], valid: true, compound: 'KBr'},
+                {pair: ['Ne', 'Ar'], valid: false, compound: 'None'}
+            ]
+        };
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            currentLevel = 1;
+            currentQuestion = 0;
+            score = 0;
+            setupLevel();
+        }
+
+        function setupLevel() {
+            answered = false;
+            const titles = ['🔗 Guess the Bond', '⚡ Electronegativity Match', '🧬 Form the Bond'];
+            const descs = [
+                'Identify the bond type between these elements',
+                'Determine bond type from electronegativity values',
+                'Drag elements to form valid compounds'
+            ];
+            
+            document.getElementById('level-title').textContent = titles[currentLevel - 1];
+            document.getElementById('level-desc').textContent = descs[currentLevel - 1];
+            document.getElementById('score').textContent = score;
+            document.getElementById('feedback').textContent = '';
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('level-btn').style.display = 'none';
+            
+            if (currentLevel === 1) setupLevel1();
+            else if (currentLevel === 2) setupLevel2();
+            else if (currentLevel === 3) setupLevel3();
+        }
+
+        function setupLevel1() {
+            const data = gameData.level1[currentQuestion];
+            document.getElementById('level-content').innerHTML = `
+                <div class="question">What type of bond forms between:</div>
+                <div class="elements">
+                    <div class="element">${data.elements[0]}</div>
+                    <div class="element">${data.elements[1]}</div>
+                </div>
+                <div class="options">
+                    <div class="option" onclick="checkAnswer('Ionic', '${data.answer}', '${data.explanation}')">Ionic</div>
+                    <div class="option" onclick="checkAnswer('Covalent (polar)', '${data.answer}', '${data.explanation}')">Covalent (polar)</div>
+                    <div class="option" onclick="checkAnswer('Covalent (non-polar)', '${data.answer}', '${data.explanation}')">Covalent (non-polar)</div>
+                    <div class="option" onclick="checkAnswer('Metallic', '${data.answer}', '${data.explanation}')">Metallic</div>
+                </div>
+            `;
+        }
+
+        function setupLevel2() {
+            const data = gameData.level2[currentQuestion];
+            document.getElementById('level-content').innerHTML = `
+                <div class="question">Electronegativity values:</div>
+                <div class="elements">
+                    <div class="element">${data.values[0]}</div>
+                    <div class="element">${data.values[1]}</div>
+                </div>
+                <div class="options">
+                    <div class="option" onclick="checkAnswer('Ionic', '${data.answer}', '${data.explanation}')">Ionic</div>
+                    <div class="option" onclick="checkAnswer('Covalent (polar)', '${data.answer}', '${data.explanation}')">Covalent (polar)</div>
+                    <div class="option" onclick="checkAnswer('Covalent (non-polar)', '${data.answer}', '${data.explanation}')">Covalent (non-polar)</div>
+                    <div class="option" onclick="checkAnswer('Metallic', '${data.answer}', '${data.explanation}')">Metallic</div>
+                </div>
+            `;
+        }
+
+        function setupLevel3() {
+            const data = gameData.level3[currentQuestion];
+            document.getElementById('level-content').innerHTML = `
+                <div class="question">Can these elements form a stable bond?</div>
+                <div class="drag-area">
+                    <div class="draggable" draggable="true" data-element="${data.pair[0]}">${data.pair[0]}</div>
+                    <div class="draggable" draggable="true" data-element="${data.pair[1]}">${data.pair[1]}</div>
+                    <div class="drop-zone" ondrop="drop(event)" ondragover="allowDrop(event)">Drop here to bond</div>
+                </div>
+            `;
+            setupDragDrop();
+        }
+
+        function setupDragDrop() {
+            document.querySelectorAll('.draggable').forEach(el => {
+                el.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('text/plain', e.target.dataset.element);
+                    e.target.classList.add('dragging');
+                });
+                el.addEventListener('dragend', e => e.target.classList.remove('dragging'));
+            });
+        }
+
+        function allowDrop(e) {
+            e.preventDefault();
+            e.target.classList.add('drag-over');
+        }
+
+        function drop(e) {
+            e.preventDefault();
+            e.target.classList.remove('drag-over');
+            const data = gameData.level3[currentQuestion];
+            const feedback = data.valid ? '🎉 Perfect Bond! ' + data.compound : '❌ Incompatible! ' + data.compound;
+            document.getElementById('feedback').textContent = feedback;
+            if (data.valid) score++;
+            answered = true;
+            setTimeout(() => document.getElementById('next-btn').style.display = 'inline-block', 1000);
+        }
+
+        function checkAnswer(selected, correct, explanation) {
+            if (answered) return;
+            answered = true;
+            
+            document.querySelectorAll('.option').forEach(opt => {
+                if (opt.textContent === selected) {
+                    opt.classList.add(selected === correct ? 'correct' : 'incorrect');
+                } else if (opt.textContent === correct) {
+                    opt.classList.add('correct');
+                }
+            });
+            
+            if (selected === correct) {
+                score++;
+                document.getElementById('feedback').textContent = '🎉 Correct! ' + explanation;
+            } else {
+                document.getElementById('feedback').textContent = '❌ Wrong! ' + explanation;
+            }
+            
+            document.getElementById('score').textContent = score;
+            setTimeout(() => document.getElementById('next-btn').style.display = 'inline-block', 1500);
+        }
+
+        function nextQuestion() {
+            currentQuestion++;
+            if (currentQuestion >= 5) {
+                if (currentLevel < 3) {
+                    document.getElementById('next-btn').style.display = 'none';
+                    document.getElementById('level-btn').style.display = 'inline-block';
+                    document.getElementById('level-content').innerHTML = '<div class="level-complete">🌟 Level Complete! Ready for the next challenge?</div>';
+                } else {
+                    endGame();
+                }
+            } else {
+                setupLevel();
+            }
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            currentQuestion = 0;
+            setupLevel();
+        }
+
+        function endGame() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.remove('hidden');
+            document.getElementById('final-score').textContent = score;
+            
+            const titles = [
+                {threshold: 15, title: '🏆 Bond Master Supreme', desc: 'Perfect score! You are the ultimate chemical matchmaker!'},
+                {threshold: 12, title: '⭐ Bond Hero', desc: 'Excellent work! You have mastered chemical bonding!'},
+                {threshold: 9, title: '🔬 Chemical Detective', desc: 'Great job! You understand most bonding concepts!'},
+                {threshold: 6, title: '🧪 Lab Assistant', desc: 'Good effort! Keep studying those bonds!'},
+                {threshold: 0, title: '📚 Atomic Intern', desc: 'Nice try! Time to hit the chemistry books!'}
+            ];
+            
+            const result = titles.find(t => score >= t.threshold);
+            document.getElementById('hero-title').textContent = result.title;
+            document.getElementById('hero-desc').textContent = result.desc;
+        }
+
+        function restartGame() {
+            document.getElementById('end-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            currentLevel = 1;
+            currentQuestion = 0;
+            score = 0;
+        }
+    </script>
+</body>
+</html>
